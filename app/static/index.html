@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TeamTask</title>
+  <style>
+    :root {
+      --bg: #f5f6fa; --card: #ffffff; --text: #1d2130; --muted: #687085; --border: #e3e6ee;
+      --accent: #4f46e5; --accent-text: #ffffff; --danger: #dc2626; --ok: #15803d;
+      --high: #dc2626; --medium: #c2410c; --low: #2563eb; --shadow: 0 1px 3px rgba(20, 24, 40, .08);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1118; --card: #181b25; --text: #e7e9f0; --muted: #9aa2b4; --border: #2a2f3d;
+        --accent: #8b87f7; --accent-text: #0f1118; --danger: #f87171; --ok: #4ade80;
+        --high: #f87171; --medium: #fb923c; --low: #60a5fa; --shadow: none;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text);
+           font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+             padding: 16px 24px; background: var(--card); border-bottom: 1px solid var(--border); }
+    header h1 { margin: 0; font-size: 22px; }
+    header .subtitle { color: var(--muted); }
+    .pill { margin-left: auto; padding: 3px 10px; border-radius: 999px; font-size: 13px;
+            border: 1px solid var(--border); color: var(--muted); }
+    .pill.online { color: var(--ok); border-color: currentColor; }
+    .pill.offline { color: var(--danger); border-color: currentColor; }
+    main { max-width: 900px; margin: 24px auto; padding: 0 16px; display: grid; gap: 20px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 18px 20px; box-shadow: var(--shadow); }
+    .card h2 { margin: 0 0 14px; font-size: 17px; }
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+    input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border);
+            border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+    textarea { resize: vertical; min-height: 40px; }
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    .full { grid-column: 1 / -1; }
+    button { font: inherit; cursor: pointer; border-radius: 8px; padding: 8px 14px;
+             border: 1px solid var(--border); background: var(--card); color: var(--text); }
+    button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+    button.danger { color: var(--danger); }
+    button:disabled { opacity: .6; cursor: wait; }
+    .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+    .tabs { display: flex; gap: 4px; }
+    .tabs button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text);
+                                        border-color: var(--accent); }
+    .toolbar input { flex: 1 1 180px; width: auto; }
+    .toolbar select { width: auto; }
+    .count { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+    ul.tasks { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+    li.task { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start;
+              padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; }
+    li.task input[type="checkbox"] { width: 18px; height: 18px; margin-top: 3px; cursor: pointer; }
+    .task-title { font-weight: 600; word-break: break-word; }
+    li.done .task-title { text-decoration: line-through; color: var(--muted); }
+    .task-desc { color: var(--muted); margin-top: 2px; white-space: pre-wrap; word-break: break-word; }
+    .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-size: 12px; }
+    .badge { padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; }
+    .badge.high { color: var(--high); } .badge.medium { color: var(--medium); } .badge.low { color: var(--low); }
+    .badge.status { color: var(--muted); } .badge.done { color: var(--ok); }
+    .badge.overdue { color: var(--danger); font-weight: 600; }
+    .task-buttons { display: flex; gap: 6px; }
+    .task-buttons button { padding: 5px 10px; font-size: 13px; }
+    .empty { text-align: center; color: var(--muted); padding: 24px 0; }
+    .placeholder { color: var(--muted); }
+    dialog { border: 1px solid var(--border); border-radius: 12px; padding: 20px;
+             background: var(--card); color: var(--text); width: min(520px, 92vw); }
+    dialog::backdrop { background: rgba(0, 0, 0, .45); }
+    dialog h2 { margin-top: 0; font-size: 17px; }
+    #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: 90vw;
+             padding: 10px 16px; border-radius: 10px; background: var(--text); color: var(--bg);
+             opacity: 0; pointer-events: none; transition: opacity .2s; }
+    #toast.show { opacity: 1; }
+    #toast.error { background: var(--danger); color: #fff; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TeamTask</h1>
+    <span class="subtitle">Smart Task Tracker</span>
+    <span id="health" class="pill">Checking API…</span>
+  </header>
+
+  <main>
+    <section class="card" aria-labelledby="new-heading">
+      <h2 id="new-heading">New task</h2>
+      <form id="create-form" novalidate>
+        <div class="grid">
+          <div class="full">
+            <label for="new-title">Title *</label>
+            <input id="new-title" name="title" maxlength="200" required placeholder="e.g. Prepare sprint demo">
+          </div>
+          <div class="full">
+            <label for="new-description">Description</label>
+            <textarea id="new-description" name="description" maxlength="1000" rows="2"
+                      placeholder="Optional details"></textarea>
+          </div>
+          <div>
+            <label for="new-priority">Priority</label>
+            <select id="new-priority" name="priority">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+          <div>
+            <label for="new-due">Due date</label>
+            <input id="new-due" name="due_date" type="date">
+          </div>
+        </div>
+        <div class="actions"><button class="primary" type="submit">Add task</button></div>
+      </form>
+    </section>
+
+    <section class="card" aria-labelledby="list-heading">
+      <h2 id="list-heading">Tasks</h2>
+      <div class="toolbar">
+        <div class="tabs" role="group" aria-label="Filter by status">
+          <button type="button" data-filter="all" aria-pressed="true">All</button>
+          <button type="button" data-filter="pending" aria-pressed="false">Pending</button>
+          <button type="button" data-filter="completed" aria-pressed="false">Completed</button>
+        </div>
+        <input id="search" type="search" placeholder="Search tasks…" aria-label="Search tasks">
+        <select id="sort" aria-label="Sort tasks">
+          <option value="newest">Newest first</option>
+          <option value="due">Due date</option>
+          <option value="priority">Priority</option>
+        </select>
+      </div>
+      <div id="count" class="count"></div>
+      <ul id="task-list" class="tasks"></ul>
+    </section>
+
+    <section class="card" aria-labelledby="analytics-heading">
+      <h2 id="analytics-heading">Productivity analytics</h2>
+      <p class="placeholder">Coming soon. Sai is building the analytics API (task counts, overdue tasks,
+        completion percentage, tasks by priority). It will appear here once it is merged.</p>
+    </section>
+  </main>
+
+  <dialog id="edit-dialog" aria-labelledby="edit-heading">
+    <form id="edit-form" method="dialog" novalidate>
+      <h2 id="edit-heading">Edit task</h2>
+      <div class="grid">
+        <div class="full">
+          <label for="edit-title">Title *</label>
+          <input id="edit-title" name="title" maxlength="200" required>
+        </div>
+        <div class="full">
+          <label for="edit-description">Description</label>
+          <textarea id="edit-description" name="description" maxlength="1000" rows="3"></textarea>
+        </div>
+        <div>
+          <label for="edit-priority">Priority</label>
+          <select id="edit-priority" name="priority">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+        <div>
+          <label for="edit-status">Status</label>
+          <select id="edit-status" name="status">
+            <option value="pending">Pending</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+        <div>
+          <label for="edit-due">Due date</label>
+          <input id="edit-due" name="due_date" type="date">
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" id="edit-cancel">Cancel</button>
+        <button type="submit" class="primary" value="save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    "use strict";
+
+    const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
+    const state = { tasks: [], filter: "all", search: "", sort: "newest", editing: null };
+    const $ = (id) => document.getElementById(id);
+
+    // ---------- talking to the API ----------
+    function errorMessage(data, status) {
+      if (data && Array.isArray(data.detail)) {
+        return data.detail.map((d) => {
+          const field = (d.loc || []).slice(1).join(".");
+          return (field ? field + ": " : "") + d.msg.replace(/^Value error, /, "");
+        }).join("; ");
+      }
+      if (data && typeof data.detail === "string") return data.detail;
+      return "Request failed (HTTP " + status + ")";
+    }
+
+    async function api(method, path, body) {
+      const options = { method, headers: {} };
+      if (body !== undefined) {
+        options.headers["Content-Type"] = "application/json";
+        options.body = JSON.stringify(body);
+      }
+      const res = await fetch(path, options);
+      if (res.status === 204) return null;
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(errorMessage(data, res.status));
+      return data;
+    }
+
+    // ---------- small helpers ----------
+    let toastTimer;
+    function toast(message, isError = false) {
+      const el = $("toast");
+      el.textContent = message;
+      el.className = "show" + (isError ? " error" : "");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.className = ""; }, isError ? 5000 : 2500);
+    }
+
+    function todayString() {
+      const d = new Date();
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" +
+             String(d.getDate()).padStart(2, "0");
+    }
+
+    function formatDate(iso) {
+      return new Date(iso + "T00:00:00").toLocaleDateString(undefined,
+        { day: "numeric", month: "short", year: "numeric" });
+    }
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;  // textContent: user text is never parsed as HTML
+      return node;
+    }
+
+    // ---------- rendering ----------
+    function visibleTasks() {
+      const q = state.search.trim().toLowerCase();
+      const list = state.tasks.filter((t) =>
+        (state.filter === "all" || t.status === state.filter) &&
+        (!q || t.title.toLowerCase().includes(q) || (t.description || "").toLowerCase().includes(q)));
+      const byNewest = (a, b) => b.id - a.id;
+      if (state.sort === "due") {
+        list.sort((a, b) => (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31") || byNewest(a, b));
+      } else if (state.sort === "priority") {
+        list.sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || byNewest(a, b));
+      } else {
+        list.sort(byNewest);
+      }
+      return list;
+    }
+
+    function renderTask(task) {
+      const done = task.status === "completed";
+      const li = el("li", "task" + (done ? " done" : ""));
+      li.dataset.id = task.id;
+
+      const check = el("input");
+      check.type = "checkbox";
+      check.checked = done;
+      check.title = done ? "Mark as pending" : "Mark as completed";
+      check.setAttribute("aria-label", check.title + ": " + task.title);
+      check.addEventListener("change", () => updateTask(task.id, { status: check.checked ? "completed" : "pending" }));
+
+      const body = el("div");
+      body.append(el("div", "task-title", task.title));
+      if (task.description) body.append(el("div", "task-desc", task.description));
+      const meta = el("div", "meta");
+      meta.append(el("span", "badge " + task.priority, task.priority + " priority"));
+      meta.append(el("span", "badge " + (done ? "done" : "status"), done ? "completed" : "pending"));
+      if (task.due_date) {
+        meta.append(el("span", "badge status", "due " + formatDate(task.due_date)));
+        if (!done && task.due_date < todayString()) meta.append(el("span", "badge overdue", "overdue"));
+      }
+      body.append(meta);
+
+      const buttons = el("div", "task-buttons");
+      const edit = el("button", "", "Edit");
+      edit.type = "button";
+      edit.addEventListener("click", () => openEdit(task));
+      const del = el("button", "danger", "Delete");
+      del.type = "button";
+      del.addEventListener("click", () => deleteTask(task));
+      buttons.append(edit, del);
+
+      li.append(check, body, buttons);
+      return li;
+    }
+
+    function render() {
+      const list = $("task-list");
+      const tasks = visibleTasks();
+      list.replaceChildren(...tasks.map(renderTask));
+      if (!state.tasks.length) {
+        list.replaceChildren(el("li", "empty", "No tasks yet. Add your first task above."));
+      } else if (!tasks.length) {
+        list.replaceChildren(el("li", "empty", "No tasks match this filter."));
+      }
+      $("count").textContent = "Showing " + tasks.length + " of " + state.tasks.length +
+                               " task" + (state.tasks.length === 1 ? "" : "s");
+    }
+
+    // ---------- actions ----------
+    async function loadTasks() {
+      try {
+        state.tasks = await api("GET", "/tasks");
+        render();
+      } catch (err) {
+        toast("Could not load tasks: " + err.message, true);
+      }
+    }
+
+    async function checkHealth() {
+      const pill = $("health");
+      try {
+        const h = await api("GET", "/health");
+        pill.textContent = "API online · version " + (h.version.length > 12 ? h.version.slice(0, 7) : h.version);
+        pill.className = "pill online";
+      } catch {
+        pill.textContent = "API offline";
+        pill.className = "pill offline";
+      }
+    }
+
+    async function updateTask(id, changes) {
+      try {
+        await api("PUT", "/tasks/" + id, changes);
+        toast("Task updated");
+      } catch (err) {
+        toast("Could not update task: " + err.message, true);
+      }
+      await loadTasks();
+    }
+
+    async function deleteTask(task) {
+      if (!confirm('Delete "' + task.title + '"?')) return;
+      try {
+        await api("DELETE", "/tasks/" + task.id);
+        toast("Task deleted");
+      } catch (err) {
+        toast("Could not delete task: " + err.message, true);
+      }
+      await loadTasks();
+    }
+
+    $("create-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const title = $("new-title").value.trim();
+      if (!title) {
+        toast("Please enter a title", true);
+        $("new-title").focus();
+        return;
+      }
+      const payload = { title, priority: $("new-priority").value };
+      const description = $("new-description").value.trim();
+      if (description) payload.description = description;
+      if ($("new-due").value) payload.due_date = $("new-due").value;
+
+      const button = form.querySelector("button[type=submit]");
+      button.disabled = true;
+      try {
+        const task = await api("POST", "/tasks", payload);
+        form.reset();
+        toast('Added "' + task.title + '"');
+        await loadTasks();
+        $("new-title").focus();
+      } catch (err) {
+        toast("Could not add task: " + err.message, true);
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    function openEdit(task) {
+      state.editing = task;
+      $("edit-title").value = task.title;
+      $("edit-description").value = task.description || "";
+      $("edit-priority").value = task.priority;
+      $("edit-status").value = task.status;
+      $("edit-due").value = task.due_date || "";
+      $("edit-dialog").showModal();
+      $("edit-title").focus();
+    }
+
+    $("edit-cancel").addEventListener("click", () => $("edit-dialog").close());
+
+    $("edit-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const task = state.editing;
+      const title = $("edit-title").value.trim();
+      if (!title) {
+        toast("Title cannot be empty", true);
+        return;
+      }
+      // Send only the fields that changed; empty description/date clear the value (null).
+      const next = {
+        title,
+        description: $("edit-description").value.trim() || null,
+        priority: $("edit-priority").value,
+        status: $("edit-status").value,
+        due_date: $("edit-due").value || null,
+      };
+      const changes = {};
+      for (const [key, value] of Object.entries(next)) {
+        if (value !== (task[key] ?? null)) changes[key] = value;
+      }
+      $("edit-dialog").close();
+      if (Object.keys(changes).length) await updateTask(task.id, changes);
+    });
+
+    document.querySelectorAll(".tabs button").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.filter = button.dataset.filter;
+        document.querySelectorAll(".tabs button").forEach((b) =>
+          b.setAttribute("aria-pressed", String(b === button)));
+        render();
+      });
+    });
+    $("search").addEventListener("input", (e) => { state.search = e.target.value; render(); });
+    $("sort").addEventListener("change", (e) => { state.sort = e.target.value; render(); });
+
+    checkHealth();
+    loadTasks();
+  </script>
+</body>
+</html>

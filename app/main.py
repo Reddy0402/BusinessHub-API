@@ -3,12 +3,14 @@
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 
 from app.routers import tasks
 
 # The deploy pipeline writes the Git commit ID into app/version.txt.
 # Locally the file usually does not exist, so the version falls back to "dev".
 VERSION_FILE = Path(__file__).parent / "version.txt"
+WEB_UI_FILE = Path(__file__).parent / "static" / "index.html"
 
 
 def read_version() -> str:
@@ -30,6 +32,12 @@ app = FastAPI(
 def health():
     """Liveness check. Does not touch the task store, so it works on its own."""
     return {"status": "ok", "version": read_version()}
+
+
+@app.get("/", include_in_schema=False)
+def web_ui():
+    """The browser app: a single HTML page that calls the API below."""
+    return FileResponse(WEB_UI_FILE)
 
 
 # --- Feature routers ---

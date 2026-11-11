@@ -33,7 +33,9 @@ Unknown fields are rejected with `422`.
 | PUT | `/tasks/{task_id}` | `200` the updated task (send only the fields to change) | `404`, `422` |
 | DELETE | `/tasks/{task_id}` | `204` no body | `404` |
 
-Interactive docs: `http://localhost:8000/docs`
+**Web app:** `http://localhost:8000/` is a browser UI for creating, searching, filtering, editing, completing and deleting tasks. It's a single page (`app/static/index.html`) that calls the API above, with no extra packages and no build step.
+
+Interactive API docs: `http://localhost:8000/docs`
 
 `/health` reads its version from `app/version.txt`. The deploy pipeline writes the commit ID there. Locally the file doesn't exist, so it shows `dev`. Don't commit `app/version.txt`, and don't add it to `.gitignore` either, because the Railway CLI skips ignored files when uploading.
 
