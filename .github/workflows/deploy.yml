@@ -56,30 +56,52 @@ jobs:
     steps:
       - name: Smoke test deployed /health endpoint
         run: |
-          echo "Smoke testing ${{ vars.APP_URL }}/health"
+          APP_URL="${{ vars.APP_URL }}"
+          HEALTH_URL="${APP_URL%/}/health"
+
+          echo "Smoke testing $HEALTH_URL"
+
           MAX_ATTEMPTS=30
           SLEEP_SECONDS=10
+
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
             echo "Attempt $attempt/$MAX_ATTEMPTS"
-            RESPONSE=$(curl -s -w "\n%{http_code}" "${{ vars.APP_URL }}/health" || true)
+
+            RESPONSE=$(curl -4 -sS \
+              --connect-timeout 10 \
+              --max-time 20 \
+              -w "\n%{http_code}" \
+              "$HEALTH_URL" 2>&1 || true)
+
             HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
             BODY=$(echo "$RESPONSE" | sed '$d')
-            echo "HTTP $HTTP_CODE: $BODY"
+
+            echo "HTTP $HTTP_CODE"
+            echo "Response: $BODY"
 
             if [ "$HTTP_CODE" = "200" ]; then
               STATUS=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status',''))" 2>/dev/null || echo "")
               VERSION=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('version',''))" 2>/dev/null || echo "")
-              echo "status=$STATUS version=$VERSION"
+
+              echo "status=$STATUS"
+              echo "version=$VERSION"
+              echo "expected_version=${{ github.sha }}"
+
               if [ "$STATUS" = "ok" ] && [ "$VERSION" = "${{ github.sha }}" ]; then
                 echo "Smoke test passed: status=ok version=${{ github.sha }}"
                 exit 0
               fi
+
+              echo "Health endpoint responded, but status/version did not match expected values."
             fi
 
             if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
+              echo "Waiting ${SLEEP_SECONDS}s before retry..."
               sleep "$SLEEP_SECONDS"
             fi
           done
 
-          echo "Smoke test failed: /health did not return status=ok version=${{ github.sha }}"
+          echo "Smoke test failed."
+          echo "Expected URL: $HEALTH_URL"
+          echo "Expected version: ${{ github.sha }}"
           exit 1
