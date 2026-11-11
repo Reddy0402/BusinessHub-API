@@ -9,7 +9,7 @@ def test_add_numbers():
     response = client.get("/add?a=2&b=3")
 
     assert response.status_code == 200
-    assert response.json()["result"] == 6  # broken on purpose (Part I demo)
+    assert response.json()["result"] == 5
 
 
 def test_add_negative_numbers():
