@@ -1,45 +1,21 @@
-# Byte-compiled / optimized
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-
-# C extensions
-*.so
 
 # Virtual environments
 .venv/
 venv/
-ENV/
-env/
-.venv
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Testing
+# Tests
 .pytest_cache/
 .coverage
-htmlcov/
-.tox/
-*.egg-info/
-dist/
-build/
 
-# Environment
+# Secrets - never commit these
 .env
 .env.*
-!.env.example
 
-# Logs
-*.log
-
-# Docker
-Dockerfile.dockerignore
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
