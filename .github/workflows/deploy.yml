@@ -38,12 +38,15 @@ jobs:
       - name: Write commit SHA to version.txt
         run: echo "${{ github.sha }}" > app/version.txt
 
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli@5.71.0
+
       - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           echo "Deploying commit ${{ github.sha }} to Railway service ${{ vars.RAILWAY_SERVICE }}"
-          # Railway deployment is triggered via the Railway CLI or API using RAILWAY_TOKEN.
-          # The token and service are supplied through GitHub Actions secrets/variables.
-          # Do not hard-code secrets here.
+          railway up --service="${{ vars.RAILWAY_SERVICE }}" --ci
 
   smoke-test:
     name: Smoke Test
