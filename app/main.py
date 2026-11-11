@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 
-from app.routers import greet, math, reverse, wordcount
+from app.routers import greet, math, reverse, subtract, wordcount
 
 app = FastAPI(
     title="BusinessHub API",
@@ -15,6 +15,7 @@ app.include_router(greet.router)
 app.include_router(math.router)
 app.include_router(reverse.router)
 app.include_router(wordcount.router)
+app.include_router(subtract.router)
 
 
 def _read_version() -> str:
