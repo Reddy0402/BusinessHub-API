@@ -1,14 +1,16 @@
-"""Math router: GET /add?a=2&b=3."""
-
 from fastapi import APIRouter, Query
+from pydantic import BaseModel
 
-router = APIRouter(prefix="", tags=["math"])
+router = APIRouter(prefix="/add", tags=["math"])
 
 
-@router.get("/add")
-def add(
-    a: int = Query(..., description="First integer operand"),
-    b: int = Query(..., description="Second integer operand"),
+class AddResponse(BaseModel):
+    result: float
+
+
+@router.get("", response_model=AddResponse)
+def add_numbers(
+    a: float = Query(..., description="First number"),
+    b: float = Query(..., description="Second number"),
 ):
-    """Add two integers and return the result."""
     return {"result": a + b}
