@@ -1,17 +1,23 @@
-# Production-oriented Dockerfile for BusinessHub API
 FROM python:3.12-slim
 
-WORKDIR /app
+# Don't write .pyc files, and show logs immediately
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# Install production dependencies only
+WORKDIR /code
+
+# Install dependencies first so Docker can cache this layer between builds
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy the application (includes app/version.txt when the deploy pipeline writes it)
 COPY app ./app
 
-# Listen on all interfaces; PORT defaults to 8000
-ENV PORT=8000
+# Run as a normal user instead of root
+RUN useradd --create-home appuser
+USER appuser
 
-# Run the application with uvicorn
+EXPOSE 8000
+
+# 0.0.0.0 accepts outside connections; Railway sets PORT, locally it defaults to 8000
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
