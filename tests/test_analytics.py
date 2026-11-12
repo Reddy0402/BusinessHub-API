@@ -118,7 +118,8 @@ def test_analytics_completion_percentage():
     assert data["completed_tasks"] == 3
     assert data["pending_tasks"] == 2
     #this is changed line to create the conflict in this line
-    assert data["completion_percentage"] == 99.0
+    # assert data["completion_percentage"] == 99.0
+    assert data["completion_percentage"] == 60.0
 
 
 def test_analytics_zero_task_division_safety():
