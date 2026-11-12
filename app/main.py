@@ -1,12 +1,13 @@
 """TeamTask API entry point: creates the app, the health check and registers routers."""
 
 from pathlib import Path
-
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
-from app.routers import info
 from app.routers import analytics
+from app.routers import conflict_demo
+from app.routers import info
 from app.routers import tasks
+
 
 # The deploy pipeline writes the Git commit ID into app/version.txt.
 # Locally the file usually does not exist, so the version falls back to "dev".
@@ -44,4 +45,5 @@ def web_ui():
 # --- Feature routers ---
 app.include_router(tasks.router)
 app.include_router(analytics.router)
+app.include_router(conflict_demo.router)
 app.include_router(info.router)
