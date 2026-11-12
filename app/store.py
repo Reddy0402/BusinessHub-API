@@ -1,22 +1,23 @@
-"""Shared task model and in-memory task store.
+"""Shared task models and the database-backed task store.
 
-Both features use this module:
-  * Task management (app/routers/tasks.py)      - Jaanageswar
+Every feature uses this module:
+  * Task management (app/routers/tasks.py)            - Jaanageswar
   * Productivity analytics (app/routers/analytics.py) - Sai
+  * AI Smart Task Assistant (app/routers/ai.py)
 
-Because they import the same `store` object, they always see the same tasks.
-
-Design decision: there is no database on purpose. Data lives in a Python
-dictionary, so it is lost when the app restarts. That keeps the workshop
-focused on CI/CD and is fine for a single container.
+Tasks are stored in a database (Supabase Postgres in production, see app/db.py),
+so they survive restarts and redeploys. The store keeps the same methods the
+original in-memory version had, so the routers did not need to change.
 """
 
-from datetime import date
+from datetime import date, datetime, timezone
 from enum import Enum
-from threading import Lock
-from typing import Annotated, Optional
+from typing import Annotated, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from sqlalchemy import delete, select
+
+from app.db import AILogRow, SessionLocal, SubtaskRow, TaskRow, is_sqlite
 
 # A title is trimmed of surrounding spaces and must not be empty.
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
@@ -80,47 +81,114 @@ class Task(BaseModel):
     due_date: Optional[date] = None
 
 
-class TaskStore:
-    """A tiny in-memory store. A lock keeps IDs unique if two requests arrive at once."""
+class Subtask(BaseModel):
+    """A smaller step of a task (created by the AI breakdown feature)."""
 
-    def __init__(self) -> None:
-        self._tasks: dict[int, Task] = {}
-        self._next_id = 1
-        self._lock = Lock()
+    id: int = Field(..., ge=1)
+    task_id: int = Field(..., ge=1)
+    title: Title
+    status: Status
+
+
+def _value(field):
+    """Enum members are stored as their plain string value."""
+    return field.value if isinstance(field, Enum) else field
+
+
+def _to_task(row: TaskRow) -> Task:
+    return Task(
+        id=row.id,
+        title=row.title,
+        description=row.description,
+        priority=row.priority,
+        status=row.status,
+        due_date=row.due_date,
+    )
+
+
+def _to_subtask(row: SubtaskRow) -> Subtask:
+    return Subtask(id=row.id, task_id=row.task_id, title=row.title, status=row.status)
+
+
+class TaskStore:
+    """Task storage backed by the database configured in app/db.py."""
 
     def list(self) -> list[Task]:
-        with self._lock:
-            return list(self._tasks.values())
+        with SessionLocal() as session:
+            rows = session.scalars(select(TaskRow).order_by(TaskRow.id)).all()
+            return [_to_task(row) for row in rows]
 
     def get(self, task_id: int) -> Optional[Task]:
-        with self._lock:
-            return self._tasks.get(task_id)
+        with SessionLocal() as session:
+            row = session.get(TaskRow, task_id)
+            return _to_task(row) if row else None
 
     def add(self, data: TaskCreate) -> Task:
-        with self._lock:
-            task = Task(id=self._next_id, **data.model_dump())
-            self._tasks[task.id] = task
-            self._next_id += 1
-            return task
+        values = {key: _value(value) for key, value in data.model_dump().items()}
+        with SessionLocal() as session:
+            row = TaskRow(**values)
+            if row.status == Status.completed.value:
+                row.completed_at = datetime.now(timezone.utc)
+            session.add(row)
+            session.commit()
+            return _to_task(row)
 
     def update(self, task_id: int, changes: dict) -> Optional[Task]:
-        with self._lock:
-            current = self._tasks.get(task_id)
-            if current is None:
+        with SessionLocal() as session:
+            row = session.get(TaskRow, task_id)
+            if row is None:
                 return None
-            updated = current.model_copy(update=changes)
-            self._tasks[task_id] = updated
-            return updated
+            was_completed = row.status == Status.completed.value
+            for key, value in changes.items():
+                setattr(row, key, _value(value))
+            is_completed = row.status == Status.completed.value
+            if is_completed and not was_completed:
+                row.completed_at = datetime.now(timezone.utc)
+            elif was_completed and not is_completed:
+                row.completed_at = None
+            session.commit()
+            return _to_task(row)
 
     def delete(self, task_id: int) -> bool:
-        with self._lock:
-            return self._tasks.pop(task_id, None) is not None
+        with SessionLocal() as session:
+            row = session.get(TaskRow, task_id)
+            if row is None:
+                return False
+            session.delete(row)  # subtasks are deleted with it
+            session.commit()
+            return True
+
+    # ---------- subtasks ----------
+    # Note: inside this class `list` is the method above, so annotations use typing.List.
+    def list_subtasks(self, task_id: int) -> List[Subtask]:
+        with SessionLocal() as session:
+            rows = session.scalars(
+                select(SubtaskRow).where(SubtaskRow.task_id == task_id).order_by(SubtaskRow.id)
+            ).all()
+            return [_to_subtask(row) for row in rows]
+
+    def add_subtasks(self, task_id: int, titles: List[str]) -> List[Subtask]:
+        with SessionLocal() as session:
+            rows = [SubtaskRow(task_id=task_id, title=title) for title in titles]
+            session.add_all(rows)
+            session.commit()
+            return [_to_subtask(row) for row in rows]
+
+    # ---------- AI usage log ----------
+    def log_ai_call(self, endpoint: str, input_text: Optional[str], model: str) -> None:
+        with SessionLocal() as session:
+            session.add(AILogRow(endpoint=endpoint, input_text=(input_text or "")[:1000], model=model))
+            session.commit()
 
     def clear(self) -> None:
-        """Remove every task and restart IDs at 1 (handy in tests)."""
-        with self._lock:
-            self._tasks.clear()
-            self._next_id = 1
+        """Remove every row (tests only). Refuses to run against a real database."""
+        if not is_sqlite():
+            raise RuntimeError("store.clear() only runs on the SQLite test database")
+        with SessionLocal() as session:
+            session.execute(delete(SubtaskRow))
+            session.execute(delete(TaskRow))
+            session.execute(delete(AILogRow))
+            session.commit()
 
 
 # The single shared store used by every router.

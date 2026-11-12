@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Path, Response, status
 
-from app.store import Task, TaskCreate, TaskUpdate, store
+from app.store import Subtask, Task, TaskCreate, TaskUpdate, store
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -41,6 +41,14 @@ def update_task(payload: TaskUpdate, task_id: int = TaskId):
     if task is None:
         raise _not_found(task_id)
     return task
+
+
+@router.get("/{task_id}/subtasks", response_model=list[Subtask])
+def list_subtasks(task_id: int = TaskId):
+    """Return the subtasks of a task (created by POST /ai/breakdown/{task_id})."""
+    if store.get(task_id) is None:
+        raise _not_found(task_id)
+    return store.list_subtasks(task_id)
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)

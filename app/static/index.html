@@ -76,6 +76,11 @@
              opacity: 0; pointer-events: none; transition: opacity .2s; }
     #toast.show { opacity: 1; }
     #toast.error { background: var(--danger); color: #fff; }
+    .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+    .ai-output { margin-top: 12px; padding: 12px 14px; border: 1px dashed var(--accent); border-radius: 10px; }
+    .ai-output p { margin: 0 0 6px; }
+    .ai-output ul { margin: 0; padding-left: 20px; }
+    ul.subtasks { margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: 14px; }
   </style>
 </head>
 <body>
@@ -86,6 +91,17 @@
   </header>
 
   <main>
+    <section class="card" aria-labelledby="ai-heading">
+      <h2 id="ai-heading">AI assistant</h2>
+      <form id="ai-form" novalidate>
+        <label for="ai-text">Describe a task in plain English</label>
+        <textarea id="ai-text" maxlength="500" rows="2"
+                  placeholder="e.g. Finish client report by Friday, urgent"></textarea>
+        <p class="hint">The AI fills in the title, priority and due date for you.</p>
+        <div class="actions"><button class="primary" type="submit">Create with AI</button></div>
+      </form>
+    </section>
+
     <section class="card" aria-labelledby="new-heading">
       <h2 id="new-heading">New task</h2>
       <form id="create-form" novalidate>
@@ -181,6 +197,8 @@
           </div>
         </div>
       </div>
+      <div class="actions"><button type="button" id="ai-insights-button">Get AI insights</button></div>
+      <div id="ai-insights" class="ai-output" style="display: none;" aria-live="polite"></div>
     </section>
   </main>
 
@@ -229,7 +247,7 @@
     "use strict";
 
     const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
-    const state = { tasks: [], filter: "all", search: "", sort: "newest", editing: null };
+    const state = { tasks: [], filter: "all", search: "", sort: "newest", editing: null, subtasks: {} };
     const $ = (id) => document.getElementById(id);
 
     // ---------- talking to the API ----------
@@ -325,8 +343,19 @@
         if (!done && task.due_date < todayString()) meta.append(el("span", "badge overdue", "overdue"));
       }
       body.append(meta);
+      const steps = state.subtasks[task.id];
+      if (steps && steps.length) {
+        const ul = el("ul", "subtasks");
+        steps.forEach((s) => ul.append(el("li", "", s.title)));
+        body.append(ul);
+      }
 
       const buttons = el("div", "task-buttons");
+      const stepsButton = el("button", "", steps ? "Hide steps" : "Steps");
+      stepsButton.type = "button";
+      stepsButton.title = "Show the task's steps (the AI creates them if there are none)";
+      stepsButton.addEventListener("click", () => toggleSteps(task, stepsButton));
+      buttons.append(stepsButton);
       const edit = el("button", "", "Edit");
       edit.type = "button";
       edit.addEventListener("click", () => openEdit(task));
@@ -453,6 +482,72 @@
         button.disabled = false;
       }
     });
+
+    // ---------- AI assistant ----------
+    $("ai-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const text = $("ai-text").value.trim();
+      if (!text) {
+        toast("Describe the task first", true);
+        $("ai-text").focus();
+        return;
+      }
+      const button = event.currentTarget.querySelector("button[type=submit]");
+      button.disabled = true;
+      button.textContent = "Thinking…";
+      try {
+        const result = await api("POST", "/ai/parse-task", { text });
+        $("ai-text").value = "";
+        toast('AI added "' + result.task.title + '"');
+        await loadTasks();
+        await loadAnalytics();
+      } catch (err) {
+        toast("AI could not create the task: " + err.message, true);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Create with AI";
+      }
+    });
+
+    $("ai-insights-button").addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      const box = $("ai-insights");
+      button.disabled = true;
+      button.textContent = "Thinking…";
+      try {
+        const data = await api("GET", "/ai/insights");
+        const list = el("ul");
+        (data.suggestions || []).forEach((s) => list.append(el("li", "", s)));
+        box.replaceChildren(el("p", "", data.summary), list);
+        box.style.display = "";
+      } catch (err) {
+        toast("Could not get AI insights: " + err.message, true);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Get AI insights";
+      }
+    });
+
+    async function toggleSteps(task, button) {
+      if (state.subtasks[task.id]) {
+        delete state.subtasks[task.id];
+        render();
+        return;
+      }
+      button.disabled = true;
+      try {
+        let steps = await api("GET", "/tasks/" + task.id + "/subtasks");
+        if (!steps.length) {
+          button.textContent = "Thinking…";
+          steps = await api("POST", "/ai/breakdown/" + task.id);
+          toast("AI split the task into " + steps.length + " steps");
+        }
+        state.subtasks[task.id] = steps;
+      } catch (err) {
+        toast("Could not load steps: " + err.message, true);
+      }
+      render();
+    }
 
     function openEdit(task) {
       state.editing = task;

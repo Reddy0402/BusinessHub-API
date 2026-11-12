@@ -13,6 +13,10 @@ venv/
 # Secrets - never commit these
 .env
 .env.*
+!.env.example
+
+# Supabase CLI local state
+supabase/.temp/
 
 # Editors and OS
 .vscode/
