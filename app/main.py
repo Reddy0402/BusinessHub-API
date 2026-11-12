@@ -42,6 +42,8 @@ def web_ui():
 
 # --- Feature routers ---
 app.include_router(tasks.router)
+from app.routers import task_actions
+app.include_router(task_actions.router)
 # Sai: register the analytics router here, e.g.
 #   from app.routers import analytics
 #   app.include_router(analytics.router)
