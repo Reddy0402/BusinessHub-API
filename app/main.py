@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
+from app.routers import analytics
 from app.routers import tasks
 
 # The deploy pipeline writes the Git commit ID into app/version.txt.
@@ -42,6 +43,4 @@ def web_ui():
 
 # --- Feature routers ---
 app.include_router(tasks.router)
-# Sai: register the analytics router here, e.g.
-#   from app.routers import analytics
-#   app.include_router(analytics.router)
+app.include_router(analytics.router)

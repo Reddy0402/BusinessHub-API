@@ -137,8 +137,50 @@
 
     <section class="card" aria-labelledby="analytics-heading">
       <h2 id="analytics-heading">Productivity analytics</h2>
-      <p class="placeholder">Coming soon. Sai is building the analytics API (task counts, overdue tasks,
-        completion percentage, tasks by priority). It will appear here once it is merged.</p>
+      <div id="analytics-loading" class="placeholder">Loading analytics…</div>
+      <div id="analytics-error" class="placeholder" style="display: none; color: var(--danger);">
+        Unable to load productivity analytics.
+      </div>
+      <div id="analytics-dashboard" style="display: none;">
+        <div class="grid full">
+          <div>
+            <div class="count">Total Tasks</div>
+            <div id="analytics-total" style="font-size: 26px; font-weight: 700;">0</div>
+          </div>
+          <div>
+            <div class="count">Completed</div>
+            <div id="analytics-completed" style="font-size: 26px; font-weight: 700; color: var(--ok);">0</div>
+          </div>
+          <div>
+            <div class="count">Pending</div>
+            <div id="analytics-pending" style="font-size: 26px; font-weight: 700;">0</div>
+          </div>
+          <div>
+            <div class="count">Overdue</div>
+            <div id="analytics-overdue" style="font-size: 26px; font-weight: 700; color: var(--danger);">0</div>
+          </div>
+          <div>
+            <div class="count">Completion</div>
+            <div id="analytics-completion" style="font-size: 26px; font-weight: 700; color: var(--accent);">0%</div>
+          </div>
+        </div>
+        <div class="grid full" style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div class="count">Tasks by Priority</div>
+            <div id="analytics-by-priority" style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <span style="padding: 4px 10px; border: 1px solid currentColor; border-radius: 999px; color: var(--high);">
+                <b>High</b> <span id="analytics-priority-high">0</span>
+              </span>
+              <span style="padding: 4px 10px; border: 1px solid currentColor; border-radius: 999px; color: var(--medium);">
+                <b>Medium</b> <span id="analytics-priority-medium">0</span>
+              </span>
+              <span style="padding: 4px 10px; border: 1px solid currentColor; border-radius: 999px; color: var(--low);">
+                <b>Low</b> <span id="analytics-priority-low">0</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -320,6 +362,33 @@
       }
     }
 
+    async function loadAnalytics() {
+      const loading = $("analytics-loading");
+      const error = $("analytics-error");
+      const dashboard = $("analytics-dashboard");
+      loading.style.display = "";
+      error.style.display = "none";
+      dashboard.style.display = "none";
+      try {
+        const data = await api("GET", "/analytics");
+        const byPriority = data.tasks_by_priority || {};
+        $("analytics-total").textContent = data.total_tasks ?? 0;
+        $("analytics-completed").textContent = data.completed_tasks ?? 0;
+        $("analytics-pending").textContent = data.pending_tasks ?? 0;
+        $("analytics-overdue").textContent = data.overdue_tasks ?? 0;
+        $("analytics-completion").textContent = (data.completion_percentage ?? 0) + "%";
+        $("analytics-priority-high").textContent = byPriority.high ?? 0;
+        $("analytics-priority-medium").textContent = byPriority.medium ?? 0;
+        $("analytics-priority-low").textContent = byPriority.low ?? 0;
+        loading.style.display = "none";
+        dashboard.style.display = "";
+      } catch {
+        loading.style.display = "none";
+        dashboard.style.display = "none";
+        error.style.display = "";
+      }
+    }
+
     async function checkHealth() {
       const pill = $("health");
       try {
@@ -340,6 +409,7 @@
         toast("Could not update task: " + err.message, true);
       }
       await loadTasks();
+      await loadAnalytics();
     }
 
     async function deleteTask(task) {
@@ -351,6 +421,7 @@
         toast("Could not delete task: " + err.message, true);
       }
       await loadTasks();
+      await loadAnalytics();
     }
 
     $("create-form").addEventListener("submit", async (event) => {
@@ -374,6 +445,7 @@
         form.reset();
         toast('Added "' + task.title + '"');
         await loadTasks();
+        await loadAnalytics();
         $("new-title").focus();
       } catch (err) {
         toast("Could not add task: " + err.message, true);
@@ -432,6 +504,7 @@
 
     checkHealth();
     loadTasks();
+    loadAnalytics();
   </script>
 </body>
 </html>

@@ -5,7 +5,7 @@ A small task tracker REST API built with **FastAPI** for a CI/CD workshop (Docke
 | Feature | Owner | Code |
 |---|---|---|
 | Task management (create, list, get, update, delete) | Jaanageswar | `app/routers/tasks.py` |
-| Productivity analytics (counts, overdue, completion %, by priority) | Sai | `app/routers/analytics.py` (to be built on Sai's feature branch) |
+| Productivity analytics (counts, overdue, completion %, by priority) | Sai | `app/routers/analytics.py` |
 
 Both features share one in-memory store: `app/store.py`. There is no database on purpose, so data resets when the app restarts.
 
@@ -32,6 +32,7 @@ Unknown fields are rejected with `422`.
 | GET | `/tasks/{task_id}` | `200` the task | `404` not found |
 | PUT | `/tasks/{task_id}` | `200` the updated task (send only the fields to change) | `404`, `422` |
 | DELETE | `/tasks/{task_id}` | `204` no body | `404` |
+| GET | `/analytics` | `200` productivity analytics summary | |
 
 **Web app:** `http://localhost:8000/` is a browser UI for creating, searching, filtering, editing, completing and deleting tasks. It's a single page (`app/static/index.html`) that calls the API above, with no extra packages and no build step.
 
