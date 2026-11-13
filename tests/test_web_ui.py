@@ -36,3 +36,14 @@ def test_web_ui_contains_analytics_dashboard():
     assert "Low" in text
     # The frontend calls the relative analytics endpoint.
     assert "/analytics" in text
+
+
+def test_web_ui_contains_ai_assistant():
+    """The web app has the AI input box, insights panel and steps button."""
+    text = client.get("/").text
+    assert "AI assistant" in text
+    assert "Create with AI" in text
+    assert "Get AI insights" in text
+    assert "/ai/parse-task" in text
+    assert "/ai/insights" in text
+    assert "/ai/breakdown/" in text

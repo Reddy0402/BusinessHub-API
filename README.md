@@ -306,6 +306,21 @@ Example response:
 
 ---
 
+# 🤖 AI Smart Task Assistant
+
+Uses [OpenRouter](https://openrouter.ai) **free models** (`:free`, $0). If one model is rate-limited, OpenRouter falls back to the next one in `OPENROUTER_MODEL` / `DEFAULT_MODELS` in `app/ai.py`.
+
+| Endpoint | What it does |
+|---|---|
+| `POST /ai/parse-task` | `{"text": "Finish client report by Friday, urgent"}` → creates a task with title, priority and due date. Send `"create": false` to get only the draft. |
+| `GET /ai/insights` | Short productivity summary plus 2–4 suggested next actions, based on `/analytics` and open tasks. |
+| `POST /ai/breakdown/{task_id}` | Splits a task into 3–6 subtasks and saves them. |
+| `GET /tasks/{task_id}/subtasks` | Lists a task's subtasks. |
+
+Every AI answer is validated before it is saved. If the AI is not configured or busy, the endpoint returns `503` with a clear message, and `/health` is never affected.
+
+---
+
 # 🧪 Demo Endpoints
 
 The repository also contains endpoints created as part of the GitHub branching and merge-conflict exercise.
@@ -747,15 +762,17 @@ The second checks for common whitespace and patch formatting problems.
 
 # 🗄️ Data Storage
 
-The application intentionally uses an **in-memory task store**.
+Tasks, subtasks and AI usage logs are stored in **Supabase Postgres** (free tier), so data survives restarts and redeploys.
 
-There is no external database.
+| Table | Purpose |
+|---|---|
+| `tasks` | id, title, description, priority, status, due_date, created_at, completed_at |
+| `subtasks` | steps of a task (from `POST /ai/breakdown`), deleted together with the task |
+| `ai_logs` | one row per AI call: endpoint, input text, model, time |
 
-Therefore:
-
-> Task data is reset whenever the application/container restarts.
-
-This keeps the project simple and focused on API development and CI/CD rather than database infrastructure.
+- The schema lives in [`db/schema.sql`](db/schema.sql) and enables Row Level Security, which blocks Supabase's public REST API from the tables.
+- The app connects with `DATABASE_URL`. Use the **Session pooler** connection string from Supabase → **Connect** (IPv4, works from Railway).
+- Without `DATABASE_URL` the app uses a temporary in-memory SQLite database. Tests and CI always use SQLite, so they need no database or secrets.
 
 ---
 
@@ -772,6 +789,16 @@ RAILWAY_TOKEN
 ```
 
 should be stored as a GitHub Actions secret rather than inside the repository.
+
+The app's own secrets are Railway **service variables** (never committed):
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | Supabase Session pooler connection string |
+| `OPENROUTER_API_KEY` | OpenRouter API key |
+| `OPENROUTER_MODEL` | optional, comma-separated free models |
+
+For local development, copy `.env.example` to `.env` (git-ignored). The tests ignore `.env` and never call the real AI.
 
 ---
 
