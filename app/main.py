@@ -10,11 +10,13 @@ load_dotenv()
 
 from fastapi import FastAPI  # noqa: E402
 from fastapi.responses import FileResponse  # noqa: E402
+from app.routers import jani_message
 from app.routers import ai  # noqa: E402
 from app.routers import analytics  # noqa: E402
 from app.routers import conflict_demo  # noqa: E402
 from app.routers import info  # noqa: E402
 from app.routers import tasks  # noqa: E402
+
 
 
 # The deploy pipeline writes the Git commit ID into app/version.txt.
@@ -56,3 +58,4 @@ app.include_router(analytics.router)
 app.include_router(conflict_demo.router)
 app.include_router(info.router)
 app.include_router(ai.router)
+app.include_router(jani_message.router)
