@@ -10,6 +10,7 @@ load_dotenv()
 
 from fastapi import FastAPI  # noqa: E402
 from fastapi.responses import FileResponse  # noqa: E402
+from app.routers import sai_status
 from app.routers import ai  # noqa: E402
 from app.routers import analytics  # noqa: E402
 from app.routers import conflict_demo  # noqa: E402
@@ -56,3 +57,4 @@ app.include_router(analytics.router)
 app.include_router(conflict_demo.router)
 app.include_router(info.router)
 app.include_router(ai.router)
+app.include_router(sai_status.router)
