@@ -10,6 +10,7 @@ load_dotenv()
 
 from fastapi import FastAPI  # noqa: E402
 from fastapi.responses import FileResponse  # noqa: E402
+from app.mcp.server import mcp_app, mcp_lifespan  # noqa: E402
 from app.routers import sai_status
 from app.routers import ai  # noqa: E402
 from app.routers import analytics  # noqa: E402
@@ -36,6 +37,7 @@ def read_version() -> str:
 app = FastAPI(
     title="TeamTask API",
     description="Smart task tracker: task management, productivity analytics and an AI assistant.",
+    lifespan=mcp_lifespan,
 )
 
 
@@ -58,3 +60,6 @@ app.include_router(conflict_demo.router)
 app.include_router(info.router)
 app.include_router(ai.router)
 app.include_router(sai_status.router)
+
+# --- MCP endpoint (streamable-http) ---
+app.mount("/mcp", mcp_app)

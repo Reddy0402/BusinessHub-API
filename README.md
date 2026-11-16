@@ -321,6 +321,95 @@ Every AI answer is validated before it is saved. If the AI is not configured or 
 
 ---
 
+# 🔌 MCP Server
+
+BusinessHub exposes a **Model Context Protocol (MCP)** server so AI agents (via an MCP client such as the SAP Integration Suite MCP Gateway) can interact with BusinessHub using the MCP protocol.
+
+## Architecture
+
+```text
+AI Agent / MCP Client
+        ↓
+SAP Integration Suite MCP Gateway
+        ↓
+BusinessHub MCP endpoint (/mcp)
+        ↓
+Existing BusinessHub FastAPI application
+        ↓
+Existing store/service layer (app/store.py)
+        ↓
+SQLAlchemy
+        ↓
+Supabase PostgreSQL
+```
+
+The MCP server is **mounted inside the existing FastAPI application** — it is not a standalone server, not a second database, and not a second business-logic layer. Every MCP tool calls the existing BusinessHub store/service layer, which persists to the same Supabase PostgreSQL database used by the REST API.
+
+## Endpoints
+
+| Environment | URL | Notes |
+|-------------|-----|-------|
+| Local development | `http://127.0.0.1:8000/mcp` | Streamable HTTP transport |
+| Production (after deployment) | `https://businesshub-api-production.up.railway.app/mcp` | Intended production endpoint |
+
+The production endpoint above is the **intended** endpoint once the application is deployed to Railway; it is not assumed to be live until deployed.
+
+## Local testing
+
+Start the application:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Then verify:
+
+```bash
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/docs
+```
+
+The MCP endpoint is reachable at:
+
+```text
+http://127.0.0.1:8000/mcp
+```
+
+## MCP Inspector
+
+The official [MCP Inspector](https://github.com/modelcontextprotocol/inspector) can be used for manual verification against the local endpoint:
+
+```text
+http://127.0.0.1:8000/mcp
+```
+
+Connect with the Streamable HTTP transport, run `initialize`, then `tools/list` to see the available BusinessHub tools, and call any tool (e.g. `businesshub_health`, `list_tasks`, `create_task`).
+
+## MCP tools
+
+| Tool | Reads / Writes | Description |
+|------|----------------|-------------|
+| `businesshub_health` | Read | Health / version (GET /health). Does not touch the database. |
+| `list_tasks` | Read | List all tasks (GET /tasks). |
+| `get_task` | Read | Get one task by id (GET /tasks/{id}). |
+| `list_subtasks` | Read | List a task's subtasks (GET /tasks/{id}/subtasks). |
+| `get_analytics` | Read | Productivity analytics (GET /analytics). |
+| `get_business_info` | Read | BusinessHub information (GET /info). |
+| `create_task` | **Write** | Create a task (POST /tasks). Modifies Supabase data. |
+| `update_task` | **Write** | Update a task (PUT /tasks/{id}). Modifies Supabase data. |
+| `delete_task` | **Write** | Delete a task (DELETE /tasks/{id}). Modifies Supabase data. |
+| `parse_task` | **Write** (create=true) | Parse plain English into a task (POST /ai/parse-task). |
+| `get_ai_insights` | Read | AI productivity summary (GET /ai/insights). |
+| `breakdown_task` | **Write** | Split a task into subtasks (POST /ai/breakdown/{id}). |
+
+Read-only tools never modify Supabase data. Write tools create or modify persistent BusinessHub/Supabase data through the existing store layer.
+
+## Security
+
+No secrets (DATABASE_URL, Supabase credentials, OPENROUTER_API_KEY) are exposed through MCP. Tool descriptions and responses never contain credentials or connection strings. For the first local prototype authentication is kept simple; the implementation is structured so authentication can be added for the deployed MCP endpoint via the MCP SDK's auth support.
+
+---
+
 # 🧪 Demo Endpoints
 
 The repository also contains endpoints created as part of the GitHub branching and merge-conflict exercise.
